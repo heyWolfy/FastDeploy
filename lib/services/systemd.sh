@@ -1,0 +1,88 @@
+#!/bin/bash
+
+create_systemd_service() {
+    # --- SYSTEMD SERVICE ---
+    color_echo "Creating systemd service file: /etc/systemd/system/$APP_CODE_NAME.service"
+    # Ensure APP_DIR is used in paths
+    if ! sudo tee "/etc/systemd/system/$APP_CODE_NAME.service" > /dev/null << EOL
+[Unit]
+Description=$APP_NICE_NAME API Powered by FastAPI
+After=network.target
+Wants=network-online.target
+Documentation=$GITHUB_REPO
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=15
+User=$APP_CODE_NAME
+Group=$APP_CODE_NAME
+Environment="PATH=$APP_DIR/venv/bin:\$PATH"
+WorkingDirectory=$APP_DIR
+
+# Allow high concurrency
+LimitNOFILE=65535
+
+ExecStart=$APP_DIR/venv/bin/uvicorn \\
+    --host 127.0.0.1 \\
+    --port $APP_PORT \\
+    --loop uvloop \\
+    --http httptools \\
+    --proxy-headers \\
+    --forwarded-allow-ips='*' \\
+    --log-level warning \\
+    --no-access-log \\
+    --use-colors \\
+    --workers $NUM_WORKERS \\
+    --limit-concurrency $CONCURRENCY_LIMIT \\
+    --backlog $BACKLOG_SIZE \\
+    $UVICORN_APP_MODULE
+
+# Security enhancements
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+ProtectHome=read-only # Changed from true to allow reading files in home if necessary, though APP_DIR is /var/www
+# Consider ProtectHome=true if app has no reason to read user homes.
+# Or ProtectHome=yes (alias for true)
+# If app needs write access to its own APP_DIR (e.g. for logs, uploads within APP_DIR),
+# ReadWritePaths=$APP_DIR can be added. WorkingDirectory grants some implicit access.
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource management
+Nice=$NICE_VALUE
+CPUQuota=$CPU_QUOTA
+MemoryMax=$MEMORY_MAX
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
+EOL
+    then
+        echo -e "${RED}Failed to create systemd service file.${NC}"
+        exit 1
+    fi
+    color_echo "Systemd service file created."
+
+    sudo systemctl daemon-reload
+    color_echo "Enabling service $APP_CODE_NAME..."
+    sudo systemctl enable "$APP_CODE_NAME.service"
+    color_echo "Starting service $APP_CODE_NAME..."
+    if ! sudo systemctl start "$APP_CODE_NAME.service"; then
+        echo -e "${RED}Failed to start $APP_CODE_NAME service.${NC}"
+        echo "Check service status with: sudo systemctl status $APP_CODE_NAME.service"
+        echo "Check service logs with: sudo journalctl -u $APP_CODE_NAME -e"
+        exit 1
+    fi
+    color_echo "Service $APP_CODE_NAME started successfully."
+}

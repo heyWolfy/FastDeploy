@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Initialize early to an empty string for safer cleanup on early errors
+APP_CODE_NAME=""
+APP_DIR="" # Will be /var/www/$APP_CODE_NAME
+INSTALLATION_MODE=""
+ACTION_COMPLETED_APP_CLEARED="false"
+SCRIPT_EXITING_CLEANLY_AFTER_USER_ACTION="false"
+KNOWN_SERVICE_PORTS=(20 21 22 25 53 80 110 143 443 465 587 993 995 3306 5432 6379 27017 11211)
+
+# Function for colored echo
+color_echo() {
+    echo -e "${YELLOW}[INFO] $1${NC}"
+}
+
+execute_quietly() {
+    local description="$1"
+    shift # Remove description
+
+    local print_generic_success_msg_flag="true" # Default: print "completed successfully"
+    # Check if the next argument is 'false' to suppress the success message
+    if [[ $# -gt 0 && "$1" == "false" ]]; then
+        print_generic_success_msg_flag="false"
+        shift # Consume the 'false' flag
+    elif [[ $# -gt 0 && "$1" == "true" ]]; then # Explicit 'true'
+        shift # Consume the 'true' flag
+    fi
+    local command_to_run=("$@")
+
+    color_echo "${description}..."
+
+    local temp_log
+    temp_log=$(mktemp) # Create a temporary file for logs from the command
+
+    # Execute the command, redirecting all its output to the temp_log
+    if ! "${command_to_run[@]}" >"$temp_log" 2>&1; then
+        echo -e "${RED}ERROR: Task '$description' failed.${NC}"
+        echo -e "${RED}Command executed: ${command_to_run[*]}${NC}"
+        echo -e "${YELLOW}Output from command (last 20 lines):${NC}"
+        tail -n 20 "$temp_log" # Show the tail of the log for quick diagnosis
+        echo -e "${YELLOW}Full output for this command was in: $temp_log (this file will be removed).${NC}"
+        echo -e "${YELLOW}If script logging is enabled, check the main log file for more context.${NC}"
+        rm -f "$temp_log" # Clean up the temp file
+        exit 1 # Critical failure, exit script
+    fi
+
+    rm -f "$temp_log" # Clean up temp file on success
+    if [ "$print_generic_success_msg_flag" = "true" ]; then
+        color_echo "$description completed successfully."
+    fi
+}
+
+# Cleanup function
+cleanup() {
+    if [ "${SCRIPT_EXITING_CLEANLY_AFTER_USER_ACTION}" = "true" ]; then
+        return
+    fi
+    if [ -z "$APP_CODE_NAME" ]; then
+        if [ "${ACTION_COMPLETED_APP_CLEARED}" != "true" ]; then
+            echo -e "${YELLOW}\nSkipping cleanup(No action performed on Server by FastDeploy.)${NC}"
+        fi
+        return
+    fi
+    echo -e "${RED}Performing cleanup for '$APP_CODE_NAME'${NC}"
+    # Commands to undo changes here
+    sudo systemctl stop "$APP_CODE_NAME.service" 2>/dev/null || true
+    sudo systemctl disable "$APP_CODE_NAME.service" 2>/dev/null || true
+    sudo rm -f "/etc/systemd/system/$APP_CODE_NAME.service"
+    sudo rm -f "/etc/nginx/sites-available/$APP_CODE_NAME"
+    sudo rm -f "/etc/nginx/sites-enabled/$APP_CODE_NAME"
+    if systemctl is-active --quiet nginx; then # Reload nginx only if it's active
+      sudo systemctl reload nginx 2>/dev/null || echo -e "${YELLOW}Nginx reload might have failed or Nginx not running.${NC}"
+    fi
+    sudo userdel -r "$APP_CODE_NAME" 2>/dev/null || true
+    sudo rm -rf "$APP_DIR" # Use APP_DIR variable
+    echo -e "${RED}Cleanup completed for '$APP_CODE_NAME'.${NC}"
+}
