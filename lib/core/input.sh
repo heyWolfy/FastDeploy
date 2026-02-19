@@ -85,7 +85,7 @@ validate_port() {
     [[ $1 =~ ^[0-9]+$ ]] && [ "$1" -ge 1024 ] && [ "$1" -le 65535 ]
 }
 validate_integer() { [[ $1 =~ ^[0-9]+$ ]]; }
-validate_percentage() { [[ $1 =~ ^[0-9]{1,3}%$ ]] && [ "${1%\%}" -ge 0 ] && [ "${1%\%}" -le 100 ]; } # Allow 0-100%
+validate_percentage() { [[ $1 =~ ^[0-9]+%$ ]] && [ "${1%\%}" -ge 0 ]; } # Allow >= 0%, no upper limit for multi-core
 validate_nice_value() { [[ $1 =~ ^-?[0-9]+$ ]] && [ "$1" -ge -20 ] && [ "$1" -le 19 ]; }
 validate_app_code_name() { [[ "$1" =~ ^[a-zA-Z0-9_.-]+$ ]] && [[ ! "$1" =~ \.\. ]]; } # Basic validation
 validate_domain_name() { [[ "$1" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; } # Basic domain check

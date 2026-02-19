@@ -129,9 +129,11 @@ edit_systemd_config() {
     echo -e "CPU Cores: ${YELLOW}$num_cores${NC}, RAM: ${YELLOW}${TOTAL_MEM_MB}MB${NC}"
     echo -e "Recommended Workers: ${GREEN}$recommended_workers${NC} (Current: $current_workers)"
     echo -e "Recommended MemoryMax: ${GREEN}$RECOMMENDED_MEM_MAX_STR${NC} (Current: $current_memory_max)"
-    echo -e "${CYAN}---------------------------------${NC}\n"
+    echo -e "${CYAN}---------------------------------${NC}"
+    echo -e "${YELLOW}To keep the current/default value, just press Enter.${NC}\n"
 
     # 3. Prompt for new values
+
     # We use the 'get_input' function which should be available from the parent script execution context.
     # Note: We are setting global variables that create_systemd_service uses.
     
@@ -202,6 +204,7 @@ edit_nginx_config() {
     fi
 
     # 2. Prompt for new values
+    echo -e "${YELLOW}To keep the current/default value, just press Enter.${NC}\n"
     get_input "Enter the domain name" DOMAIN_NAME validate_domain_name \
         "Domain name for the application." "$DOMAIN_NAME"
         
