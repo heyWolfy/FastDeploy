@@ -45,6 +45,8 @@ source "$LIB_DIR/services/update.sh"
 main() {
     # --- SCRIPT START ---
     clear
+    scan_installed_apps # Scan for existing apps to populate the registry
+
     echo -e "${GREEN}Welcome to the FastDeploy - FastAPI Application Deployment Script!${NC}"
     echo "This script will help you deploy a FastAPI application with Nginx and Systemd."
     echo -e "${YELLOW}You can press Ctrl+C/CMD+C at any point to abort the script. A cleanup will be attempted if necessary.${NC}"
@@ -378,7 +380,11 @@ main() {
     color_echo "Nice values of user processes (excluding root):"
     ps -eo nice,user:20,comm --sort=nice | awk '$2 != "root" && $2 != "USER" && NR > 1' | uniq | tail -n 20
 
+    # Save the app code name to the registry
+    save_app_code_name "$APP_CODE_NAME"
+
     # Mark install as successful BEFORE clearing APP_CODE_NAME for the EXIT trap
+
     ACTION_COMPLETED_APP_CLEARED="true"
     APP_CODE_NAME_SUCCESSFUL="$APP_CODE_NAME"
     APP_CODE_NAME=""

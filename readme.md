@@ -52,7 +52,11 @@ Why choose a "Bare Metal" script over Docker?
 1.  **Download & Run**:
     ```bash
     wget https://raw.githubusercontent.com/your-repo/FastDeploy/main/FastDeploy.sh
+    ```
+    ```bash
     chmod +x FastDeploy.sh
+    ```
+    ```bash
     sudo ./FastDeploy.sh
     ```
 
